@@ -1,0 +1,3 @@
+# Ignore service account key
+credentials.json
+*.json   # optionally ignore all json that may be secrets — be careful
