@@ -24,7 +24,6 @@ SHEET_NAME = os.getenv('SHEET_NAME', 'Candidate CVs')
 TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID')
 TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN')
 
-# Initialize gspread client using local credentials.json service account file
 def init_gspread_client():
     creds_path = os.path.join(os.getcwd(), 'credentials.json')
     if not os.path.exists(creds_path):
@@ -63,7 +62,7 @@ def append_candidate_to_sheet(candidate: dict):
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    # Twilio posts form-encoded data
+    
     data = request.form
     logger.info('Incoming webhook: keys=%s', list(data.keys()))
 
@@ -76,7 +75,6 @@ def webhook():
         content_type = data.get('MediaContentType0', '')
         logger.info('Received media: %s (%s)', media_url, content_type)
 
-        # Download media (Twilio media requires basic auth using Account SID:Auth Token)
         auth = None
         if TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN:
             auth = (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
@@ -88,14 +86,12 @@ def webhook():
             logger.error('Failed to download media: %s', e)
             return ('', 500)
 
-        # Save to temporary file
         suffix = ''
         if 'pdf' in content_type.lower():
             suffix = '.pdf'
         elif 'word' in content_type.lower() or 'msword' in content_type.lower() or 'officedocument' in content_type.lower():
             suffix = '.docx'
         else:
-            # try to guess from URL
             if media_url.lower().endswith('.pdf'):
                 suffix = '.pdf'
             elif media_url.lower().endswith('.docx'):
@@ -110,22 +106,18 @@ def webhook():
         elif temp_path.endswith('.docx'):
             extracted_text = extract_text_from_docx(temp_path)
         else:
-            # unknown binary type — fallback to treating as text
             extracted_text = resp.text if hasattr(resp, 'text') else ''
 
     else:
-        # No media — use plain text body
         extracted_text = body
 
-    # Parse candidate details using AI if available (or fallback)
     candidate = parse_candidate(extracted_text)
-    # Preserve extracted 'Received At' when available; otherwise set to current UTC time
+    
     if not candidate.get('Received At'):
         candidate['Received At'] = datetime.utcnow().isoformat()
 
     append_candidate_to_sheet(candidate)
 
-    # Twilio expects a valid TwiML or 200 OK
     return ('', 200)
 
 
